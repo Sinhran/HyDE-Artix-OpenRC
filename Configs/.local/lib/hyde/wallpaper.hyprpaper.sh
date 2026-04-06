@@ -2,7 +2,11 @@
 [[ $HYDE_SHELL_INIT -ne 1 ]] && eval "$(hyde-shell init)"
 
 if [[ ! -f "$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/hyprpaper.lock" ]]; then
-    systemctl --user start hyprpaper.service || setsid hyprpaper &
+    if [ -d /run/systemd/system ]; then
+        systemctl --user start hyprpaper.service || setsid hyprpaper &
+    else
+        setsid hyprpaper &
+    fi
     sleep 1
 fi
 selected_wall="${1:-${XDG_CACHE_HOME:-$HOME/.cache}/hyde/wall.set}"
@@ -26,8 +30,11 @@ splash = false
 wallpaper:path = "${selected_wall}"
 EOF
 
-    if systemctl --user is-active --quiet hyprpaper.service; then
+    if [ -d /run/systemd/system ] && systemctl --user is-active --quiet hyprpaper.service; then
         systemctl --user restart hyprpaper.service
+    elif pgrep -x hyprpaper > /dev/null 2>&1; then
+        pkill -x hyprpaper && sleep 0.5
+        app2unit.sh -- hyprpaper --config "$XDG_STATE_HOME/hyde/hyprpaper.conf"
     else
         app2unit.sh -- hyprpaper --config "$XDG_STATE_HOME/hyde/hyprpaper.conf"
     fi

@@ -7,6 +7,8 @@ USEP=$(printf '%b' '\037')
 TERMINAL_HANDLER=xdg-terminal-exec
 SELF_NAME=${0##*/}
 set -euf
+# Detect init system for non-systemd (e.g. OpenRC) compatibility
+is_systemd() { [ -d /run/systemd/system ]; }
 shcat() {
     while IFS='' read -r line; do
         printf '%s\n' "$line"
@@ -834,11 +836,16 @@ gen_unit_id() {
         fi
         case "$UNIT_DESKTOP_SUBSTRING$UNIT_APP_SUBSTRING" in
             *[!a-zA-Z:_.]*)
-                read -r UNIT_DESKTOP_SUBSTRING UNIT_APP_SUBSTRING <<- EOL
-					$(systemd-escape "A$UNIT_DESKTOP_SUBSTRING" "A$UNIT_APP_SUBSTRING")
-				EOL
-                UNIT_DESKTOP_SUBSTRING=${UNIT_DESKTOP_SUBSTRING#A}
-                UNIT_APP_SUBSTRING=${UNIT_APP_SUBSTRING#A}
+                if is_systemd; then
+                    read -r UNIT_DESKTOP_SUBSTRING UNIT_APP_SUBSTRING <<- EOL
+						$(systemd-escape "A$UNIT_DESKTOP_SUBSTRING" "A$UNIT_APP_SUBSTRING")
+					EOL
+                    UNIT_DESKTOP_SUBSTRING=${UNIT_DESKTOP_SUBSTRING#A}
+                    UNIT_APP_SUBSTRING=${UNIT_APP_SUBSTRING#A}
+                else
+                    UNIT_DESKTOP_SUBSTRING=$(printf '%s' "$UNIT_DESKTOP_SUBSTRING" | sed 's/[^a-zA-Z0-9:_.]/-/g')
+                    UNIT_APP_SUBSTRING=$(printf '%s' "$UNIT_APP_SUBSTRING" | sed 's/[^a-zA-Z0-9:_.]/-/g')
+                fi
                 ;;
         esac
         RANDOM_STRING=$(random_string)
@@ -890,6 +897,19 @@ randomize_unit_id() {
     RANDOM_STRING=$NEW_RANDOM_STRING
 }
 systemd_run() {
+    # Non-systemd fallback: run command directly without systemd wrapping
+    if ! is_systemd; then
+        debug "direct run" "$(printf '  >%s<\n' "$@")"
+        case "${UNIT_TYPE}_$SILENT" in
+            scope_out) exec > /dev/null ;;
+            scope_err) exec 2> /dev/null ;;
+            scope_both) exec > /dev/null 2>&1 ;;
+        esac
+        if [ -n "$ENTRY_WORKDIR" ]; then
+            cd "$ENTRY_WORKDIR" 2>/dev/null || true
+        fi
+        exec "$@"
+    fi
     UNIT_SLICE_ID=${UNIT_SLICE_ID:-app-graphical.slice}
     if [ -z "$UNIT_DESCRIPTION" ] && [ -n "${ENTRY_LNAME:-$ENTRY_NAME}" ] && [ -n "${ENTRY_LCOMMENT:-$ENTRY_COMMENT}" ]; then
         UNIT_DESCRIPTION="${ENTRY_LNAME:-$ENTRY_NAME} - ${ENTRY_LCOMMENT:-$ENTRY_COMMENT}"

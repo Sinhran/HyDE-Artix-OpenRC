@@ -101,7 +101,7 @@ unplug = 100  # Unplug battery threshold.
 [battery.notify.execute]
 unplug = ""  # Command to execute when unplugged.
 low = ""  # Command to execute when battery is low.
-critical = "systemctl suspend"  # Command to execute when battery is critical.
+critical = "loginctl suspend"  # Command to execute when battery is critical.
 charging = ""  # Command to execute when charging.
 discharging = ""  # Command to execute when discharging.
 
@@ -265,7 +265,7 @@ image_clipboard = "wl-paste --type image --watch cliphist store"  # Image clipbo
 network_manager = "nm-applet --indicator"  # Network manager.
 notifications = "swaync"  # Notifications.
 removable_media = "udiskie --no-automount --smart-tray"  # Removable media manager.
-systemd_share_picker = "systemctl --user import-environment QT_QPA_PLATFORMTHEME WAYLAND_DISPLAY XDG_CURRENT_DESKTOP"  # Systemd share picker.
+systemd_share_picker = "command -v systemctl >/dev/null 2>&1 && systemctl --user import-environment QT_QPA_PLATFORMTHEME WAYLAND_DISPLAY XDG_CURRENT_DESKTOP || true"  # Systemd share picker (skipped on non-systemd).
 text_clipboard = "wl-paste --type text --watch cliphist store"  # Text clipboard.
 wallpaper = "$scrPath/wallpaper.sh --global"  # Wallpaper script.
 xdg_portal_reset = "resetxdgportal.sh"  # XDG portal reset script.

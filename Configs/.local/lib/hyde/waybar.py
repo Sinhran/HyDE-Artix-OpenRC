@@ -68,6 +68,7 @@ CONFIG_JSONC = Path(os.path.join(str(xdg_config_home()), "waybar", "config.jsonc
 STATE_FILE = Path(os.path.join(str(xdg_state_home()), "hyde", "staterc"))
 HYDE_CONFIG = Path(os.path.join(str(xdg_state_home()), "hyde", "config"))
 UNIT_NAME = f"hyde-{os.environ.get('XDG_SESSION_DESKTOP', 'unknown')}-bar.service"
+HAS_SYSTEMD = os.path.exists("/run/systemd/system")
 
 
 def source_env_file(filepath):
@@ -500,12 +501,23 @@ def signal_handler(sig, frame):
 
 def is_waybar_running_for_current_user():
     """Check if Waybar or Waybar-wrapped is running for the current user only."""
-    check_cmd = ["systemctl", "--user", "is-active", UNIT_NAME]
     try:
-        result = subprocess.run(check_cmd, capture_output=True, text=True)
-        if result.returncode == 0 and "active" in result.stdout:
-            logger.debug("Waybar is running for the current user.")
-            return True
+        if HAS_SYSTEMD:
+            result = subprocess.run(
+                ["systemctl", "--user", "is-active", UNIT_NAME],
+                capture_output=True, text=True,
+            )
+            if result.returncode == 0 and "active" in result.stdout:
+                logger.debug("Waybar is running for the current user.")
+                return True
+        else:
+            result = subprocess.run(
+                ["pgrep", "-u", str(os.getuid()), "-x", "waybar"],
+                capture_output=True, text=True,
+            )
+            if result.returncode == 0:
+                logger.debug("Waybar is running for the current user.")
+                return True
     except Exception as e:
         logger.error(f"Error checking Waybar status: {e}")
 
@@ -513,30 +525,40 @@ def is_waybar_running_for_current_user():
 
 
 def run_waybar():
-    """Run Waybar using hyde-shell app with systemd unit, let systemd handle logging."""
-    # check_cmd = ["systemctl", "--user", "is-active", "--quiet", UNIT_NAME]
-    run_cmd = ["hyde-shell", "app", "-u", UNIT_NAME, "-t", "service", "--", "waybar"]
-    # Check if the unit is active
-    # result = subprocess.run(check_cmd)
-    if is_waybar_running_for_current_user():
-        logger.debug(f"Waybar launched via systemd unit: {UNIT_NAME}")
+    """Run Waybar using hyde-shell app (systemd unit) or directly."""
+    if HAS_SYSTEMD:
+        run_cmd = ["hyde-shell", "app", "-u", UNIT_NAME, "-t", "service", "--", "waybar"]
+        if is_waybar_running_for_current_user():
+            logger.debug(f"Waybar launched via systemd unit: {UNIT_NAME}")
+        else:
+            subprocess.run(run_cmd)
+            logger.debug(f"Waybar systemd unit already active: {UNIT_NAME}")
     else:
-        subprocess.run(run_cmd)
-        logger.debug(f"Waybar systemd unit already active: {UNIT_NAME}")
+        if is_waybar_running_for_current_user():
+            logger.debug("Waybar is already running.")
+        else:
+            subprocess.run(["waybar"])
+            logger.debug("Waybar launched directly.")
 
 
 def kill_waybar():
     """Kill only the current user's Waybar process."""
-    """Stop Waybar systemd unit for current session desktop."""
-    subprocess.run(["systemctl", "--user", "stop", UNIT_NAME])
-    logger.debug(f"Stopped Waybar systemd unit: {UNIT_NAME}")
+    if HAS_SYSTEMD:
+        subprocess.run(["systemctl", "--user", "stop", UNIT_NAME])
+        logger.debug(f"Stopped Waybar systemd unit: {UNIT_NAME}")
+    else:
+        subprocess.run(["pkill", "-u", str(os.getuid()), "-x", "waybar"])
+        logger.debug("Killed Waybar process.")
 
 
 def restart_waybar():
-    """Restart Waybar systemd unit for current session desktop."""
+    """Restart Waybar for current session desktop."""
     kill_waybar()
     run_waybar()
-    logger.debug(f"Restarted Waybar systemd unit: {UNIT_NAME}")
+    if HAS_SYSTEMD:
+        logger.debug(f"Restarted Waybar systemd unit: {UNIT_NAME}")
+    else:
+        logger.debug("Restarted Waybar process.")
 
 
 def kill_waybar_and_watcher():
@@ -545,16 +567,18 @@ def kill_waybar_and_watcher():
     logger.debug("Killed Waybar processes for current user.")
 
     try:
-        watcher_unit = f"hyde-{os.getenv('XDG_SESSION_DESKTOP')}-waybar-watcher.service"
-        result = subprocess.run(
-            ["systemctl", "--user", "is-active", watcher_unit],
-            capture_output=True,
-            text=True,
-        )
-
-        if result.returncode == 0:
-            subprocess.run(["systemctl", "--user", "stop", watcher_unit])
-            # kill_waybar()
+        if HAS_SYSTEMD:
+            watcher_unit = f"hyde-{os.getenv('XDG_SESSION_DESKTOP')}-waybar-watcher.service"
+            result = subprocess.run(
+                ["systemctl", "--user", "is-active", watcher_unit],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                subprocess.run(["systemctl", "--user", "stop", watcher_unit])
+                logger.debug("Killed all waybar.py watcher scripts for current user.")
+        else:
+            subprocess.run(["pkill", "-u", str(os.getuid()), "-f", "waybar.py"])
             logger.debug("Killed all waybar.py watcher scripts for current user.")
     except Exception as e:
         logger.error(f"Error killing waybar.py processes: {e}")
@@ -1440,9 +1464,13 @@ def main():
     ensure_state_file()
 
     if args.hide:
-        # Send SIGUSR1 to Waybar systemd unit
-        cmd = ["systemctl", "--user", "kill", "-s", "SIGUSR1", UNIT_NAME]
-        logger.info(f"Sending SIGUSR1 to {UNIT_NAME} via systemctl")
+        # Send SIGUSR1 to Waybar to toggle hide
+        if HAS_SYSTEMD:
+            cmd = ["systemctl", "--user", "kill", "-s", "SIGUSR1", UNIT_NAME]
+            logger.info(f"Sending SIGUSR1 to {UNIT_NAME} via systemctl")
+        else:
+            cmd = ["pkill", "-SIGUSR1", "-x", "waybar"]
+            logger.info("Sending SIGUSR1 to waybar via pkill")
         subprocess.run(cmd)
         sys.exit(0)
 

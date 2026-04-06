@@ -152,13 +152,15 @@ $layout_items"
 }
 check_and_sanitize_process() {
     local unit_name="${1:-$HYPRLOCK_SCOPE_NAME}"
-    if systemctl --user is-active "$unit_name" > /dev/null 2>&1; then
+    if [ -d /run/systemd/system ] && systemctl --user is-active "$unit_name" > /dev/null 2>&1; then
         systemctl --user stop "$unit_name" > /dev/null 2>&1
+    elif pgrep -x hyprlock > /dev/null 2>&1; then
+        pkill -x hyprlock > /dev/null 2>&1
     fi
 }
 reload_hyprlock() {
     local unit_name="${2:-$HYPRLOCK_SCOPE_NAME}"
-    if systemctl --user is-active "$unit_name" > /dev/null 2>&1; then
+    if [ -d /run/systemd/system ] && systemctl --user is-active "$unit_name" > /dev/null 2>&1; then
         systemctl --user kill -s USR2 "$HYPRLOCK_SCOPE_NAME" > /dev/null 2>&1
     else
         pkill -USR2 hyprlock > /dev/null 2>&1

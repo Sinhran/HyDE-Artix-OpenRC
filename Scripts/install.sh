@@ -343,7 +343,7 @@ if [ $flg_Install -eq 1 ] ||
 
 	if [[ "$answer" == [Yy] ]]; then
 		echo "Rebooting system"
-		systemctl reboot
+		reboot
 	else
 		echo "The system will not reboot"
 	fi

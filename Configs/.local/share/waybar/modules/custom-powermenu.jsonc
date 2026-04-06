@@ -8,11 +8,11 @@
             "lock": "hyde-shell lockscreen.sh",
             "logout": "hyprctl dispatch exit 0",
             "shutdown-now": "shutdown now",
-            "shutdown-wait": "systemctl poweroff",
-            "reboot-now": "systemctl reboot",
-            "reboot-firmware": "systemctl reboot --firmware-setup",
-            "suspend": "systemctl suspend",
-            "hibernate": "systemctl hibernate"
+            "shutdown-wait": "loginctl poweroff",
+            "reboot-now": "loginctl reboot",
+            "reboot-firmware": "systemctl reboot --firmware-setup", // systemd-specific
+            "suspend": "loginctl suspend",
+            "hibernate": "loginctl hibernate"
         },
         "signal": 1
     }
