@@ -18,11 +18,14 @@ if [ -d /run/systemd/system ]; then
 fi
 
 # Translate a systemctl command array to the appropriate init system command
+# Sets RUN_CMD_IS_SHELL to true if the result needs shell evaluation
 svc_cmd() {
     local context="$1"; shift
     local service="$1"; shift
     local -n out_arr="$1"; shift
     local cmd_args=("$@")
+
+    RUN_CMD_IS_SHELL=false
 
     if $USE_SYSTEMD; then
         if [ "$context" = "user" ]; then
@@ -36,7 +39,8 @@ svc_cmd() {
         case "$subcmd" in
             enable)
                 if [[ " ${cmd_args[*]} " == *" --now "* ]]; then
-                    out_arr=(sudo rc-update add "$service" default "&&" sudo rc-service "$service" start)
+                    out_arr=("sudo rc-update add $service default && sudo rc-service $service start")
+                    RUN_CMD_IS_SHELL=true
                 else
                     out_arr=(sudo rc-update add "$service" default)
                 fi
@@ -119,12 +123,20 @@ while IFS='|' read -r service context command || [ -n "$service" ]; do
         if [ "$flg_DryRun" -ne 1 ]; then
             if [ "$context" = "user" ]; then
                 if [[ -n "${DBUS_SESSION_BUS_ADDRESS}" ]] && [[ -n $XDG_RUNTIME_DIR ]]; then
-                    "${run_cmd[@]}"
+                    if [ "$RUN_CMD_IS_SHELL" = "true" ]; then
+                        sh -c "${run_cmd[0]}"
+                    else
+                        "${run_cmd[@]}"
+                    fi
                 else
                     print_log -sec "services" -stat "error" "DBUS_SESSION_BUS_ADDRESS or XDG_RUNTIME_DIR not set for user service" -y " skipping"
                 fi
             else
-                "${run_cmd[@]}"
+                if [ "$RUN_CMD_IS_SHELL" = "true" ]; then
+                    sh -c "${run_cmd[0]}"
+                else
+                    "${run_cmd[@]}"
+                fi
             fi
         else
             print_log -c "[dry-run] " "${run_cmd[*]}"
