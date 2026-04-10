@@ -17,6 +17,21 @@ if [ -d /run/systemd/system ]; then
     USE_SYSTEMD=true
 fi
 
+# Translate service name for OpenRC if needed
+translate_service() {
+    local svc="$1"
+    if $USE_SYSTEMD; then
+        echo "$svc"
+    else
+        case "$svc" in
+            bluetooth) echo "bluetoothd" ;;
+            NetworkManager) echo "NetworkManager" ;;
+            sddm) echo "sddm" ;;
+            *) echo "$svc" ;;
+        esac
+    fi
+}
+
 # Translate a systemctl command array to the appropriate init system command
 # Sets RUN_CMD_IS_SHELL to true if the result needs shell evaluation
 svc_cmd() {
@@ -26,6 +41,9 @@ svc_cmd() {
     local cmd_args=("$@")
 
     RUN_CMD_IS_SHELL=false
+
+    # Translate service name for OpenRC
+    service=$(translate_service "$service")
 
     if $USE_SYSTEMD; then
         if [ "$context" = "user" ]; then
