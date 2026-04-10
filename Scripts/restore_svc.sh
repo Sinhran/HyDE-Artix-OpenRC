@@ -118,6 +118,7 @@ while IFS='|' read -r service context command || [ -n "$service" ]; do
         print_log -y "[exec] " "Service ${service} (${context}): $command"
 
         run_cmd=()
+        RUN_CMD_IS_SHELL=false
         svc_cmd "$context" "$service" run_cmd "${cmd_array[@]}"
 
         if [ "$flg_DryRun" -ne 1 ]; then
