@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Portal wrapper for xdg-desktop-portal-hyprland
+#
+# On Hyprland + NVIDIA, Qt6 EGL context creation needs NVIDIA's libGLX
+# to avoid segfaults. But __GLX_VENDOR_LIBRARY_NAME=nvidia causes GBM
+# scanout errors in Electron apps (Discord, Zen Browser) in Wayland mode.
+# Setting it ONLY here (for the portal, not globally) fixes both issues.
+exec env GBM_BACKEND=nvidia-drm __GLX_VENDOR_LIBRARY_NAME=nvidia \
+     /usr/lib/xdg-desktop-portal-hyprland -v >> /tmp/portal-hyprland.log 2>&1

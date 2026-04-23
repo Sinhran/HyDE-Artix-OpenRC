@@ -35,11 +35,11 @@ fi
 
 # Start the main xdg-desktop-portal FIRST. It acts as the session bus
 # for all sub-portals and must be ready before xdph tries to connect.
-app2unit.sh -t service "$libDir/xdg-desktop-portal" &
+"$libDir/xdg-desktop-portal" &
 sleep 1
 
-# Start the Hyprland portal SECOND. It handles ScreenCast (screen/window
-# capture) and Screenshot portal calls using the hyprland-specific APIs.
-# The -v flag enables debug logging to /tmp/portal-hyprland.log for
-# troubleshooting screen share issues.
-app2unit.sh -t service "$libDir/xdg-desktop-portal-hyprland" -v &
+# Start the Hyprland portal SECOND via its PATH wrapper
+# (e.g. ~/.local/bin/xdg-desktop-portal-hyprland). The wrapper sets
+# GBM_BACKEND=nvidia-drm and __GLX_VENDOR_LIBRARY_NAME=nvidia for Qt6 EGL,
+# then execs /usr/lib/xdg-desktop-portal-hyprland with -v debug logging.
+xdg-desktop-portal-hyprland &
