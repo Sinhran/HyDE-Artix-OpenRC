@@ -1,0 +1,24 @@
+# Desktop launcher for Discord
+#
+# On Hyprland + NVIDIA + Wayland, Discord must be forced to use the Wayland
+# platform via ELECTRON_OZONE_PLATFORM_HINT=wayland. Without this, Discord
+# runs in X11 mode (--ozone-platform=x11) and sees only XWayland windows —
+# Zen Browser and ghostty (both Wayland-native) are invisible to it.
+#
+# The --ozone-platform-hint=wayland flag tells Electron's built-in Chromium
+# to prefer the Wayland platform. On multi-GPU setups, adding --enable-wayland-ime
+# may help with input method support.
+#
+# Note: Discord needs to be FULLY restarted (not just the window closed) after
+# these flags change. A stale Discord process may not pick up new flags.
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Discord
+Comment=All-in-one voice and text chat for gamers
+Exec=env ELECTRON_OZONE_PLATFORM_HINT=wayland /usr/bin/discord --ozone-platform-hint=wayland
+Icon=discord
+Terminal=false
+Categories=Network;InstantMessaging;VoiceChat;
+StartupNotify=true
+MimeType=x-scheme-handler/discord;

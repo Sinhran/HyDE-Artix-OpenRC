@@ -130,6 +130,15 @@ P|${HOME}/.config|code-flags.conf|visual-studio-code-bin
 P|${HOME}/.config|codium-flags.conf|vscodium
 P|${HOME}/.config|electron-flags.conf|electron
 
+# XDG Desktop Portal configuration — required for screen sharing on Hyprland.
+# Routes ScreenCast to xdg-desktop-portal-hyprland (Wayland-native), not GTK.
+P|${HOME}/.config/xdg-desktop-portal|portals.conf|xdg-desktop-portal xdg-desktop-portal-hyprland
+
+# Discord launcher with Wayland platform hint — required on Hyprland + NVIDIA.
+# Without ELECTRON_OZONE_PLATFORM_HINT=wayland, Discord runs in X11 mode and
+# cannot capture Wayland-native windows (Zen Browser, ghostty, etc.).
+P|${HOME}/.local/share/applications|discord.desktop|discord
+
  Notifications 
 S|${HOME}/.config|dunst|dunst
 

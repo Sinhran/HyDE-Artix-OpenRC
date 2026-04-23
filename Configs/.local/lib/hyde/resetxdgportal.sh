@@ -1,14 +1,31 @@
 #!/usr/bin/env bash
 [[ $HYDE_SHELL_INIT -ne 1 ]] && eval "$(hyde-shell init)"
+
+# Kill ALL portal processes. Starting fresh prevents stale portals from holding
+# D-Bus names and causing "File exists" errors on restart.
+killall -e xdg-document-portal  2>/dev/null
+killall -e xdg-desktop-portal    2>/dev/null
+killall -e xdg-desktop-portal-hyprland 2>/dev/null
+# GTK and KDE backends are not needed on Hyprland and can interfere with
+# the hyprland portal's ScreenCast implementation — leave them dead.
+killall -e xdg-desktop-portal-gtk 2>/dev/null
+killall -e xdg-desktop-portal-kde 2>/dev/null
 sleep 1
-killall -e xdg-desktop-portal-hyprland
-killall -e xdg-desktop-portal
-sleep 1
+
+# Resolve the library directory once.
 if [ -d /run/current-system/sw/libexec ]; then
     libDir=/run/current-system/sw/libexec
 else
     libDir=/usr/lib
 fi
-app2unit.sh -t service $libDir/xdg-desktop-portal-hyprland
+
+# Start the main xdg-desktop-portal FIRST. It acts as the session bus
+# for all sub-portals and must be ready before xdph tries to connect.
+app2unit.sh -t service "$libDir/xdg-desktop-portal" &
 sleep 1
-app2unit.sh -t service $libDir/xdg-desktop-portal &
+
+# Start the Hyprland portal SECOND. It handles ScreenCast (screen/window
+# capture) and Screenshot portal calls using the hyprland-specific APIs.
+# The -v flag enables debug logging to /tmp/portal-hyprland.log for
+# troubleshooting screen share issues.
+app2unit.sh -t service "$libDir/xdg-desktop-portal-hyprland" -v &
